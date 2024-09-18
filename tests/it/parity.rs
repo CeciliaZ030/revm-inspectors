@@ -12,8 +12,9 @@ use revm::{
     },
     DatabaseCommit,
 };
-use revm_inspectors::tracing::{
-    parity::populate_state_diff, TracingInspector, TracingInspectorConfig,
+use revm_inspectors::{
+    chain_address,
+    tracing::{parity::populate_state_diff, TracingInspector, TracingInspectorConfig},
 };
 use std::collections::HashSet;
 
@@ -44,14 +45,17 @@ fn test_parity_selfdestruct(spec_id: SpecId) {
     let value = U256::from(69);
 
     let mut db = CacheDB::new(EmptyDB::default());
-    db.insert_account_info(deployer, AccountInfo { balance: value, ..Default::default() });
+    db.insert_account_info(
+        chain_address(deployer),
+        AccountInfo { balance: value, ..Default::default() },
+    );
 
     let cfg = CfgEnvWithHandlerCfg::new(CfgEnv::default(), HandlerCfg::new(spec_id));
     let env = EnvWithHandlerCfg::new_with_cfg_env(
         cfg.clone(),
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
             transact_to: TransactTo::Create,
             data: code.into(),
@@ -78,9 +82,9 @@ fn test_parity_selfdestruct(spec_id: SpecId) {
         cfg,
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
-            transact_to: TransactTo::Call(contract_address),
+            transact_to: TransactTo::Call(chain_address(contract_address)),
             data: hex!("43d726d6").into(),
             ..Default::default()
         },
@@ -141,7 +145,7 @@ fn test_parity_constructor_selfdestruct() {
         cfg.clone(),
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
             transact_to: TransactTo::Create,
             data: code.into(),
@@ -167,9 +171,9 @@ fn test_parity_constructor_selfdestruct() {
         cfg,
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
-            transact_to: TransactTo::Call(addr),
+            transact_to: TransactTo::Call(chain_address(addr)),
             data: hex!("43d726d6").into(),
             ..Default::default()
         },
@@ -204,14 +208,17 @@ fn test_parity_call_selfdestruct() {
     let value = U256::from(69);
 
     let mut db = CacheDB::new(EmptyDB::default());
-    db.insert_account_info(deployer, AccountInfo { balance: value, ..Default::default() });
+    db.insert_account_info(
+        chain_address(deployer),
+        AccountInfo { balance: value, ..Default::default() },
+    );
 
     let cfg = CfgEnvWithHandlerCfg::new(CfgEnv::default(), HandlerCfg::new(SpecId::LONDON));
     let env = EnvWithHandlerCfg::new_with_cfg_env(
         cfg.clone(),
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
             transact_to: TransactTo::Create,
             data: code.into(),
@@ -231,15 +238,15 @@ fn test_parity_call_selfdestruct() {
     };
     db.commit(res.state);
 
-    db.accounts.get_mut(&to).unwrap().info.balance = balance;
+    db.accounts.get_mut(&chain_address(to)).unwrap().info.balance = balance;
 
     let env = EnvWithHandlerCfg::new_with_cfg_env(
         cfg,
         BlockEnv::default(),
         TxEnv {
-            caller,
+            caller: chain_address(caller),
             gas_limit: 100000000,
-            transact_to: TransactTo::Call(to),
+            transact_to: TransactTo::Call(chain_address(to)),
             data: input.to_vec().into(),
             ..Default::default()
         },
@@ -289,7 +296,7 @@ fn test_parity_statediff_blob_commit() {
     let cfg = CfgEnvWithHandlerCfg::new(CfgEnv::default(), HandlerCfg::new(SpecId::CANCUN));
 
     db.insert_account_info(
-        caller,
+        chain_address(caller),
         AccountInfo { balance: U256::from(u64::MAX), ..Default::default() },
     );
 
@@ -303,9 +310,9 @@ fn test_parity_statediff_blob_commit() {
             ..Default::default()
         },
         TxEnv {
-            caller,
+            caller: chain_address(caller),
             gas_limit: 1000000,
-            transact_to: TransactTo::Call(to),
+            transact_to: TransactTo::Call(chain_address(to)),
             gas_price: U256::from(150),
             blob_hashes: vec!["0x01af2fd94f17364bc8ef371c4c90c3a33855ff972d10b9c03d0445b3fca063ea"
                 .parse()
@@ -321,7 +328,8 @@ fn test_parity_statediff_blob_commit() {
     let mut full_trace = insp.into_parity_builder().into_trace_results(&res.result, &trace_types);
 
     let state_diff = full_trace.state_diff.as_mut().unwrap();
-    populate_state_diff(state_diff, db, res.state.iter()).unwrap();
+    populate_state_diff(state_diff, db, res.state.iter().map_while(|(a, b)| Some((&a.1, b))))
+        .unwrap();
 
     assert!(!state_diff.contains_key(&to));
     assert!(state_diff.contains_key(&caller));
@@ -360,7 +368,7 @@ fn test_parity_delegatecall_selfdestruct() {
         cfg.clone(),
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
             transact_to: TransactTo::Create,
             data: delegate_code.into(),
@@ -384,7 +392,7 @@ fn test_parity_delegatecall_selfdestruct() {
         cfg.clone(),
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
             transact_to: TransactTo::Create,
             data: target_code.into(),
@@ -414,9 +422,9 @@ fn test_parity_delegatecall_selfdestruct() {
         cfg,
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
-            transact_to: TransactTo::Call(delegate_addr),
+            transact_to: TransactTo::Call(chain_address(delegate_addr)),
             data: input_data.into(),
             ..Default::default()
         },

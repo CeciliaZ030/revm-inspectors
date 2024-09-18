@@ -22,7 +22,7 @@ use revm::{
         OpCode, SharedMemory, Stack,
     },
     primitives::{AccountInfo, Bytecode, EvmState, KECCAK_EMPTY},
-    DatabaseRef,
+    SyncDatabaseRef,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -350,7 +350,7 @@ pub(crate) struct GcDb<DB: 'static>(GuardedNullableGc<DB>);
 
 impl<DB> GcDb<DB>
 where
-    DB: DatabaseRef + 'static,
+    DB: SyncDatabaseRef + 'static,
 {
     /// Creates a new stack reference
     fn new<'a>(db: DB) -> (Self, GcGuard<'a, DB>) {
@@ -739,7 +739,7 @@ impl EvmDbRef {
     /// Creates a new evm and db JS object.
     pub(crate) fn new<'a, 'b, DB>(state: &'a EvmState, db: &'b DB) -> (Self, EvmDbGuard<'a, 'b>)
     where
-        DB: DatabaseRef,
+        DB: SyncDatabaseRef,
         DB::Error: std::fmt::Display,
     {
         let (state, state_guard) = StateRef::new(state);
@@ -932,11 +932,11 @@ pub(crate) struct EvmDbGuard<'a, 'b> {
 }
 
 /// A wrapper Database for the JS context.
-pub(crate) struct JsDb<DB: DatabaseRef>(DB);
+pub(crate) struct JsDb<DB: SyncDatabaseRef>(DB);
 
 impl<DB> DatabaseRef for JsDb<DB>
 where
-    DB: DatabaseRef,
+    DB: SyncDatabaseRef,
     DB::Error: std::fmt::Display,
 {
     type Error = String;

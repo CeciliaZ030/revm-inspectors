@@ -19,7 +19,7 @@ use revm::{
         InstructionResult, Interpreter, InterpreterResult,
     },
     primitives::{Env, ExecutionResult, Output, ResultAndState, TransactTo},
-    ContextPrecompiles, Database, DatabaseRef, EvmContext, Inspector,
+    ContextPrecompiles, EvmContext, Inspector, SyncDatabase, SyncDatabaseRef,
 };
 
 pub(crate) mod bindings;
@@ -212,7 +212,7 @@ impl JsInspector {
         db: &DB,
     ) -> Result<serde_json::Value, JsInspectorError>
     where
-        DB: DatabaseRef,
+        DB: SyncDatabaseRef,
         <DB as DatabaseRef>::Error: std::fmt::Display,
     {
         let result = self.result(res, env, db)?;
@@ -227,7 +227,7 @@ impl JsInspector {
         db: &DB,
     ) -> Result<JsValue, JsInspectorError>
     where
-        DB: DatabaseRef,
+        DB: SyncDatabaseRef,
         <DB as DatabaseRef>::Error: std::fmt::Display,
     {
         let ResultAndState { result, state } = res;
@@ -366,7 +366,7 @@ impl JsInspector {
     }
 
     /// Registers the precompiles in the JS context
-    fn register_precompiles<DB: Database>(&mut self, precompiles: &ContextPrecompiles<DB>) {
+    fn register_precompiles<DB: SyncDatabase>(&mut self, precompiles: &ContextPrecompiles<DB>) {
         if !self.precompiles_registered {
             return;
         }
@@ -380,7 +380,7 @@ impl JsInspector {
 
 impl<DB> Inspector<DB> for JsInspector
 where
-    DB: Database + DatabaseRef,
+    DB: SyncDatabase + SyncDatabaseRef,
     <DB as DatabaseRef>::Error: std::fmt::Display,
 {
     fn step(&mut self, interp: &mut Interpreter, context: &mut EvmContext<DB>) {

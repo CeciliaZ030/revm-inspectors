@@ -34,7 +34,8 @@ alloy-rpc-types-eth = "0.3"
 alloy-rpc-types-trace = "0.3"
 alloy-sol-types = "0.8"
 alloy-primitives = "0.8"
-revm = { version = "14", default-features = false, features = ["std"] }
+# revm = { version = "14", default-features = false, features = ["std"] }
+revm = { path = "../revm/crates/revm", default-features = false, features = ["std"] }
 
 anstyle = "1.0"
 colorchoice = "1.0"
@@ -54,3 +55,4 @@ snapbox = "0.6"
 [features]
 serde = ["dep:serde", "revm/serde"]
 js-tracer = ["dep:boa_engine", "dep:boa_gc"]
+

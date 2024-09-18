@@ -14,7 +14,10 @@ use revm::{
     },
     DatabaseCommit,
 };
-use revm_inspectors::tracing::{MuxInspector, TracingInspector, TracingInspectorConfig};
+use revm_inspectors::{
+    chain_address,
+    tracing::{MuxInspector, TracingInspector, TracingInspectorConfig},
+};
 use std::collections::HashMap;
 
 #[test]
@@ -63,7 +66,7 @@ fn test_geth_calltracer_logs() {
         cfg.clone(),
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
             transact_to: TransactTo::Create,
             data: code.into(),
@@ -91,9 +94,9 @@ fn test_geth_calltracer_logs() {
         cfg,
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
-            transact_to: TransactTo::Call(addr),
+            transact_to: TransactTo::Call(chain_address(addr)),
             data: Bytes::default(), // call fallback
             ..Default::default()
         },
@@ -172,7 +175,7 @@ fn test_geth_mux_tracer() {
         cfg.clone(),
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
             transact_to: TransactTo::Create,
             data: code.into(),
@@ -224,9 +227,9 @@ fn test_geth_mux_tracer() {
         cfg,
         BlockEnv::default(),
         TxEnv {
-            caller: deployer,
+            caller: chain_address(deployer),
             gas_limit: 1000000,
-            transact_to: TransactTo::Call(addr),
+            transact_to: TransactTo::Call(chain_address(addr)),
             data: Bytes::default(), // call fallback
             ..Default::default()
         },
@@ -293,10 +296,10 @@ fn test_geth_inspector_reset() {
         cfg.clone(),
         BlockEnv::default(),
         TxEnv {
-            caller: Address::ZERO,
+            caller: chain_address(Address::ZERO),
             gas_limit: 1000000,
             gas_price: Default::default(),
-            transact_to: TransactTo::Call(Address::ZERO),
+            transact_to: TransactTo::Call(chain_address(Address::ZERO)),
             ..Default::default()
         },
     );

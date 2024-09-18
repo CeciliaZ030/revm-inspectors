@@ -1,4 +1,7 @@
-use crate::tracing::{FourByteInspector, TracingInspector, TracingInspectorConfig};
+use crate::{
+    chain_address,
+    tracing::{FourByteInspector, TracingInspector, TracingInspectorConfig},
+};
 use alloy_primitives::{Address, Log, U256};
 use alloy_rpc_types_trace::geth::{
     mux::{MuxConfig, MuxFrame},
@@ -9,8 +12,8 @@ use revm::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, Interpreter,
     },
-    primitives::ResultAndState,
-    Database, DatabaseRef, EvmContext, Inspector,
+    primitives::{ChainAddress, ResultAndState},
+    EvmContext, Inspector, SyncDatabase, SyncDatabaseRef,
 };
 use std::collections::HashMap;
 use thiserror::Error;
@@ -36,7 +39,7 @@ impl MuxInspector {
     }
 
     /// Try converting this [MuxInspector] into a [MuxFrame].
-    pub fn try_into_mux_frame<DB: DatabaseRef>(
+    pub fn try_into_mux_frame<DB: SyncDatabaseRef>(
         &self,
         result: &ResultAndState,
         db: &DB,
@@ -67,7 +70,7 @@ impl MuxInspector {
 
 impl<DB> Inspector<DB> for MuxInspector
 where
-    DB: Database,
+    DB: SyncDatabase,
 {
     #[inline]
     fn initialize_interp(&mut self, interp: &mut Interpreter, context: &mut EvmContext<DB>) {
@@ -188,9 +191,9 @@ where
     }
 
     #[inline]
-    fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
+    fn selfdestruct(&mut self, contract: ChainAddress, target: ChainAddress, value: U256) {
         for (_, inspector) in &mut self.0 {
-            inspector.selfdestruct::<DB>(contract, target, value);
+            inspector.selfdestruct::<DB>(contract.1, target.1, value);
         }
     }
 }
@@ -263,7 +266,7 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn initialize_interp<DB: Database>(
+    fn initialize_interp<DB: SyncDatabase>(
         &mut self,
         interp: &mut Interpreter,
         context: &mut EvmContext<DB>,
@@ -282,7 +285,7 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn step<DB: Database>(&mut self, interp: &mut Interpreter, context: &mut EvmContext<DB>) {
+    fn step<DB: SyncDatabase>(&mut self, interp: &mut Interpreter, context: &mut EvmContext<DB>) {
         match self {
             DelegatingInspector::FourByte(inspector) => inspector.step(interp, context),
             DelegatingInspector::Call(_, inspector) => inspector.step(interp, context),
@@ -293,7 +296,11 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn step_end<DB: Database>(&mut self, interp: &mut Interpreter, context: &mut EvmContext<DB>) {
+    fn step_end<DB: SyncDatabase>(
+        &mut self,
+        interp: &mut Interpreter,
+        context: &mut EvmContext<DB>,
+    ) {
         match self {
             DelegatingInspector::FourByte(inspector) => inspector.step_end(interp, context),
             DelegatingInspector::Call(_, inspector) => inspector.step_end(interp, context),
@@ -304,7 +311,7 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn log<DB: Database>(
+    fn log<DB: SyncDatabase>(
         &mut self,
         interp: &mut Interpreter,
         context: &mut EvmContext<DB>,
@@ -320,7 +327,7 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn call<DB: Database>(
+    fn call<DB: SyncDatabase>(
         &mut self,
         context: &mut EvmContext<DB>,
         inputs: &mut CallInputs,
@@ -337,7 +344,7 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn call_end<DB: Database>(
+    fn call_end<DB: SyncDatabase>(
         &mut self,
         context: &mut EvmContext<DB>,
         inputs: &CallInputs,
@@ -357,7 +364,7 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn create<DB: Database>(
+    fn create<DB: SyncDatabase>(
         &mut self,
         context: &mut EvmContext<DB>,
         inputs: &mut CreateInputs,
@@ -374,7 +381,7 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn create_end<DB: Database>(
+    fn create_end<DB: SyncDatabase>(
         &mut self,
         context: &mut EvmContext<DB>,
         inputs: &CreateInputs,
@@ -396,7 +403,7 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn eofcreate<DB: Database>(
+    fn eofcreate<DB: SyncDatabase>(
         &mut self,
         context: &mut EvmContext<DB>,
         inputs: &mut EOFCreateInputs,
@@ -413,7 +420,7 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn eofcreate_end<DB: Database>(
+    fn eofcreate_end<DB: SyncDatabase>(
         &mut self,
         context: &mut EvmContext<DB>,
         inputs: &EOFCreateInputs,
@@ -437,27 +444,39 @@ impl DelegatingInspector {
     }
 
     #[inline]
-    fn selfdestruct<DB: Database>(&mut self, contract: Address, target: Address, value: U256) {
+    fn selfdestruct<DB: SyncDatabase>(&mut self, contract: Address, target: Address, value: U256) {
         match self {
             DelegatingInspector::FourByte(inspector) => {
                 <FourByteInspector as Inspector<DB>>::selfdestruct(
-                    inspector, contract, target, value,
+                    inspector,
+                    chain_address(contract),
+                    chain_address(target),
+                    value,
                 )
             }
             DelegatingInspector::Call(_, inspector) => {
                 <TracingInspector as Inspector<DB>>::selfdestruct(
-                    inspector, contract, target, value,
+                    inspector,
+                    chain_address(contract),
+                    chain_address(target),
+                    value,
                 )
             }
             DelegatingInspector::Prestate(_, inspector) => {
                 <TracingInspector as Inspector<DB>>::selfdestruct(
-                    inspector, contract, target, value,
+                    inspector,
+                    chain_address(contract),
+                    chain_address(target),
+                    value,
                 )
             }
             DelegatingInspector::Noop => {}
-            DelegatingInspector::Mux(inspector) => {
-                <MuxInspector as Inspector<DB>>::selfdestruct(inspector, contract, target, value)
-            }
+            DelegatingInspector::Mux(inspector) => <MuxInspector as Inspector<DB>>::selfdestruct(
+                inspector,
+                chain_address(contract),
+                chain_address(target),
+                value,
+            ),
         }
     }
 }

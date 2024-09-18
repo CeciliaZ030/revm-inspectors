@@ -10,7 +10,7 @@ use alloy_rpc_types_trace::geth::{
     AccountChangeKind, AccountState, CallConfig, CallFrame, DefaultFrame, DiffMode,
     GethDefaultTracingOptions, PreStateConfig, PreStateFrame, PreStateMode, StructLog,
 };
-use revm::{db::DatabaseRef, primitives::ResultAndState};
+use revm::{db::SyncDatabaseRef, primitives::ResultAndState};
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap, VecDeque},
@@ -220,7 +220,7 @@ impl<'a> GethTraceBuilder<'a> {
     /// * `state` - The state post-transaction execution.
     /// * `diff_mode` - if prestate is in diff or prestate mode.
     /// * `db` - The database to fetch state pre-transaction execution.
-    pub fn geth_prestate_traces<DB: DatabaseRef>(
+    pub fn geth_prestate_traces<DB: SyncDatabaseRef>(
         &self,
         ResultAndState { state, .. }: &ResultAndState,
         prestate_config: &PreStateConfig,
@@ -242,7 +242,7 @@ impl<'a> GethTraceBuilder<'a> {
                     acc_state.storage.insert((*key).into(), slot.original_value.into());
                 }
 
-                prestate.0.insert(addr, acc_state);
+                prestate.0.insert(addr.1, acc_state);
             }
 
             Ok(PreStateFrame::Default(prestate))
@@ -270,8 +270,8 @@ impl<'a> GethTraceBuilder<'a> {
                     post_state.storage.insert((*key).into(), slot.present_value.into());
                 }
 
-                state_diff.pre.insert(addr, pre_state);
-                state_diff.post.insert(addr, post_state);
+                state_diff.pre.insert(addr.1, pre_state);
+                state_diff.post.insert(addr.1, post_state);
 
                 // determine the change type
                 let pre_change = if changed_acc.is_created() {
@@ -285,7 +285,7 @@ impl<'a> GethTraceBuilder<'a> {
                     AccountChangeKind::Modify
                 };
 
-                account_change_kinds.insert(addr, (pre_change, post_change));
+                account_change_kinds.insert(addr.1, (pre_change, post_change));
             }
 
             // ensure we're only keeping changed entries
