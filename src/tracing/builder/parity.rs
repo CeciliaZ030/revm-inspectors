@@ -12,7 +12,7 @@ use alloy_rpc_types_eth::TransactionInfo;
 use alloy_rpc_types_trace::parity::*;
 use revm::{
     db::SyncDatabaseRef,
-    primitives::{Account, ExecutionResult, ResultAndState, SpecId, KECCAK_EMPTY},
+    primitives::{Account, ChainAddress, ExecutionResult, ResultAndState, SpecId, KECCAK_EMPTY},
 };
 use std::{
     collections::{HashSet, VecDeque},
@@ -196,7 +196,7 @@ impl ParityTraceBuilder {
             populate_state_diff(
                 state_diff,
                 &db,
-                state.iter().map_while(|(addr, acc)| Some((&addr.1, acc))),
+                state.iter(),
             )?;
         }
 
@@ -498,7 +498,7 @@ pub fn populate_state_diff<'a, DB, I>(
     account_diffs: I,
 ) -> Result<(), DB::Error>
 where
-    I: IntoIterator<Item = (&'a Address, &'a Account)>,
+    I: IntoIterator<Item = (&'a ChainAddress, &'a Account)>,
     DB: SyncDatabaseRef,
 {
     for (addr, changed_acc) in account_diffs.into_iter() {
@@ -508,10 +508,10 @@ where
         }
 
         let addr = *addr;
-        let entry = state_diff.entry(addr).or_default();
+        let entry = state_diff.entry(addr.1).or_default();
 
         // we need to fetch the account from the db
-        let db_acc = db.basic_ref(chain_address(addr))?.unwrap_or_default();
+        let db_acc = db.basic_ref(addr)?.unwrap_or_default();
 
         // we check if this account was created during the transaction
         // where the smart contract was not touched before being created (no balance)
@@ -554,7 +554,7 @@ where
                 && !changed_acc.is_selfdestructed()
             {
                 // clear the entry if the account was not changed
-                state_diff.remove(&addr);
+                state_diff.remove(&addr.1);
                 continue;
             }
 
