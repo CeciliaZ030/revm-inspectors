@@ -328,7 +328,7 @@ fn test_parity_statediff_blob_commit() {
     let mut full_trace = insp.into_parity_builder().into_trace_results(&res.result, &trace_types);
 
     let state_diff = full_trace.state_diff.as_mut().unwrap();
-    populate_state_diff(state_diff, db, res.state.iter().map_while(|(a, b)| Some((&a.1, b))))
+    populate_state_diff(state_diff, db, res.state.iter().map_while(|(a, b)| Some((a, b))))
         .unwrap();
 
     assert!(!state_diff.contains_key(&to));
